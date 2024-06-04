@@ -1,8 +1,5 @@
 #!/bin/bash
 
-labE007="e007"
-labE105="e105"
-labTeste="teste"
 netLab="192.168.56.0/24"
 
 cSSH=2
@@ -17,6 +14,7 @@ uftpBytes="54857600"
 
 fileSSH="$HOME/.ssh/id_rsa.pub"
 dirUFTP="/media/compartilhada"
+fileLabs="conf/labs.txt"
 
 lab="e007"
 adminUser="teste"
@@ -190,9 +188,17 @@ function setLab(){
 		fileHosts="conf/$1_ips.txt"
 		fileMacs="conf/$1_macs.txt"
 		showLab
-		#if ! checkFiles $fileMacs; then
-		#	echo -e "\nThe MAC file $fileMacs don't exists, the you need create it to: \n  * use wakeup on LAN;\n  * to create automatically create $fileHosts.\nThe contents of this file must have one MAC address per line, such as:\n58:57:18:f1:b7:01\n58:57:18:f1:b7:02"
-		#fi
+		if ! checkFiles $fileMacs; then
+			echo -e "\nThe MAC file $fileMacs don't exists, the you need create it to: \n  * use wakeup on LAN;\n  * to create automatically create $fileHosts.\nThe contents of this file must have one MAC address per line, such as:\n58:57:18:f1:b7:01\n58:57:18:f1:b7:02"
+		fi
+# perguntar se o usuário quer continuar sem os MACs
+		# 		read -p "Do you want continue without this MAC file? (y/N) \nIf yes, you not be able to WakeUP another hosts using network \n" yn
+# 		case $yn in
+# 			[yY] ) echo -e "Creating $fileMacs file... wait!"
+# 				createFileHost;
+# 		    	echo "Done..."; menu;;
+# 		* ) echo "Okay, continue without IP file!"; menu;;
+
 		if ! checkFiles $fileHosts; then
 			echo -e "\nThe IP file $fileHosts don't exists, the you need create it to continue, the contents of this file must have one MAC address per line, such as:\n192.168.0.1\n192.168.0.2\nWithout this file the program will not work correctly."
 			
@@ -440,21 +446,26 @@ function downGDrive(){
 }
 
 function selectLab(){
- echo -ne "
-  Select the lab:
-  $(ColorGreen '1)') e007
-  $(ColorGreen '2)') e105
-  $(ColorGreen '3)') teste
-  $(ColorGreen '0)') Exit
-  $(ColorBlue 'Choose an option:') "
-  read a
-  case $a in
-	        1) setLab $labE007 ; menu ;;
-	        2) setLab $labE105 ; menu ;;
-	        3) setLab $labTeste; menu ;;
-		0) exit 0 ;;
-		*) echo -e $red"Wrong option, please select a valid option!"$clear;;
-  esac
+  echo -ne "
+  Select the lab - $(ColorBlue 'choose an option'): \n"
+  select op in $(cat $fileLabs) Exit
+  do
+    case $op in
+        Exit)
+            echo "Exit"
+            exit 0
+            ;;
+        *)
+            if [ -z "$op" ]
+            then
+                echo -e $red"Wrong option, please select a valid option!"$clear
+            else
+                echo -e "Was selected option $REPLY - laboratory $green $op" $clean
+                setLab $op; menu
+            fi
+            ;;
+	esac
+   done
 }
 
 function setPassword(){
@@ -599,7 +610,7 @@ if ! [ -x "$(command -v sshpass)" ]; then
 fi
 if ! [ -x "$(command -v wakeonlan)" ]; then
 	echo "Error: wakeonlan is not installed."
-	echo -e "Please install sshpass - apt install wakeonlan"
+	echo -e "Please install wakeonlan - apt install wakeonlan"
 	exit 0
 fi
 #
