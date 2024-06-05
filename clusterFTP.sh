@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# teste
+
 # Variables from the program
 cSSH=2
 cPING=1
