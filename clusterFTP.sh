@@ -1,6 +1,10 @@
 #!/bin/bash
 
-# Variables from the program
+labE007="e007"
+labE105="e105"
+labTeste="teste"
+netLab="192.168.56.0/24"
+
 cSSH=2
 cPING=1
 cDown=0
@@ -11,27 +15,30 @@ iDown=0
 
 uftpBytes="54857600"
 
-# Some file names
 fileSSH="$HOME/.ssh/id_rsa.pub"
 dirUFTP="/media/compartilhada"
-fileLabs="conf/labs.txt"
 
-lab="e007"
-adminUser="teste"
+lab="e105"
+adminUser="suporte"
 USERPASS=" "
 netIP=" "
 fileHosts=" "
 fileMacs=" "
-fileNetRange=" "
 
+function show_cluster_hosts() {
+	sudo nmap -sP $netID/26
+}
 
+##
 # Color  Variables
+##
 green='\e[32m'
 blue='\e[33m'
 clear='\e[0m'
 red='\e[31m'
-
+##
 # Color Functions
+##
 ColorGreen(){
 	echo -ne $green$1$clear
 }
@@ -42,10 +49,9 @@ ColorRed(){
 	echo -ne $red$1$clear
 }
 
-# Show status from the cluster hosts
 function showHostStatus(){
 	if ping -c 1 -W 1 "$1" &> /dev/null ; then
-		sshState=`echo "$USERPASS" | sshpass ssh suporte@$line whoami 2> /dev/null`
+		sshState=`echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line whoami 2> /dev/null`
 		if  [[ $adminUser = $sshState ]]; then
 			echo -ne "$(ColorGreen $1) (up-ssh), \c"
 			let "iSSH+=1"
@@ -59,14 +65,12 @@ function showHostStatus(){
 	fi
 }
 
-# Set counters in 0 (zero)
 function zeraCounters() {
 	iSSH=0
 	iPING=0
 	iDown=0
 }
 
-# Show status from SSH on the hosts in the cluster
 function showHostLab(){
 	echo -e "Show status from hosts in the $lab lab:\n"
 	zeraCounters
@@ -88,7 +92,6 @@ function showLab(){
 	echo -e "\nYou are configuring the computer lab $(ColorGreen $lab)"
 }
 
-# Check if a file exists
 function checkFiles(){
 	if [ ! -f $1 ]; then
 		echo -e "Atention the file $(ColorRed $1) don't exist!!!"
@@ -98,7 +101,6 @@ function checkFiles(){
 	fi
 }
 
-# Install SSH Key in specific remote host
 function installSSHkeyHost(){
 	echo -e "Install SSH Key in a specific host..."
 	echo -e "Please enter the host IP: e.g. 192.168.0.1"
@@ -108,7 +110,6 @@ function installSSHkeyHost(){
 	echo "Copy done..."
 }
 
-# Install SSH Key in all cluster hosts.
 function installSSHkey(){
 	echo -e "Install SSH Key in hosts from the $lab lab - thus you will can access this hosts without password!\n\n>> Atention, make this only in the first access... <<"
 
@@ -135,10 +136,9 @@ function installSSHkey(){
 
 }
 
-# Wakeup all hosts from the clusters using the network
 function wakeuphosts(){
 	echo -e "> Wake up hosts from $lab"
-	echo -e "Turning on all hosts from  $lab lab using wakeonlan command...\nThis should take few minutes..."
+	echo -e "Turning on all hosts from lab $lab using wakeonlan...\nThis should take a few minutes..."
 
 	if ! [ -x "$(command -v wakeonlan)" ]; then
 		echo "Error: wakeonlan is not installed."
@@ -150,18 +150,8 @@ function wakeuphosts(){
 
 }
 
-# Create automatically IP file to all cluster hosts
 function createFileHost(){
-
-	echo -e "\n > Creating IP file automatically - using nmap command and MAC file"
-
-	if ! checkFiles $fileNetRange; then
-			echo -e "\nThe file $fileNetRange with network address don't exists, you need create it to: \n  * discover IPs from the cluster hosts;\n .\nThe content of this file must have one IP address with netmask, such as:\n192.168.1.0/24"
-			echo -e "Error: Please create $fileNetRange first!\n Bye..."
-			exit 0
-	fi
-
-
+	echo -e "\n > Creating IP file automatically - using nmap and MAC file"
 	if ! checkFiles $fileMacs; then
 			echo -e "\nThe  file $fileMacs don't exists, the you need create it to: \n  * use wakeup on LAN;\n  * to create automatically create $fileHosts.\nThe contents of this file must have one MAC address per line, such as:\n58:57:18:f1:b7:01\n58:57:18:f1:b7:02"
 			echo -e "Error: Please create $fileMacs first!\n Bye..."
@@ -195,39 +185,36 @@ function createFileHost(){
 	echo -e "$fileHosts is done..."
 }
 
-# Set the lab/cluster that will be used
 function setLab(){
 		lab=$1
 		fileHosts="conf/$1_ips.txt"
 		fileMacs="conf/$1_macs.txt"
-		fileNetRange="conf/$1_net.txt"
-
 		showLab
-
+		#if ! checkFiles $fileMacs; then
+		#	echo -e "\nThe MAC file $fileMacs don't exists, the you need create it to: \n  * use wakeup on LAN;\n  * to create automatically create $fileHosts.\nThe contents of this file must have one MAC address per line, such as:\n58:57:18:f1:b7:01\n58:57:18:f1:b7:02"
+		#fi
 		if ! checkFiles $fileHosts; then
 			echo -e "\nThe IP file $fileHosts don't exists, the you need create it to continue, the contents of this file must have one MAC address per line, such as:\n192.168.0.1\n192.168.0.2\nWithout this file the program will not work correctly."
 			
 			read -p "Do you want create IP file ?(y/N)" yn
 
 			case $yn in
-				[yY] ) echo -e "Creating $fileHosts IP file... wait!"
-					createFileHost;
-					echo "Done..."; menu;;
-				* ) echo "Okay, continue without IP file!"; menu;;
-			esac
+			[yY] ) echo -e "Creating $fileHosts IP file... wait!"
+				createFileHost;
+		    	echo "Done..."; menu;;
+		* ) echo "Okay, continue without IP file!"; menu;;
+	esac
 
 			
 		fi
 }
 
-
-# Check if there are UFTPD installed in the all cluster hosts
 function checkUtftpd(){
 	echo -e "Checking UFTPD in the hosts from the $lab lab..."
 	while IFS= read -r line
 	do
 		echo -e "\nCheck UFTPD from $line host:"
-		pross=`echo "$USERPASS" | ssh suporte@$line sudo -S ps ax | grep uftpd | grep -v grep`
+		pross=`echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line sudo -S ps ax | grep uftpd | grep -v grep`
 		#echo "out: $pross"
 		if [ -z "$pross" ]; then
 			echo -ne "$(ColorRed $line) (down-uftp)"
@@ -238,7 +225,6 @@ function checkUtftpd(){
 	#echo -e "\nSummary:\n\t($(ColorGreen up-ping)) - host online, but don't have ssh access by ssh key.\n\t($(ColorGreen up-ssh)) - host online and have ssh access.\n\t($(ColorRed down)) - host offline."
 }
 
-# Start UTFPD on all cluster hosts
 function startUtftpd(){
 	echo -e "Starting UFTPD, It's used to copy files in a multicast mode... (more fast)"
 	echo -e "Starting the copying process..."
@@ -257,16 +243,16 @@ function startUtftpd(){
 	do
 		echo "Start UFTPD in the $line host..."
 		#echo "$USERPASS" | ssh suporte@$line sudo -S /etc/init.d/uftp restart
-		echo "$USERPASS" | ssh suporte@$line sudo -S /etc/init.d/uftp stop
+		echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line sudo -S /etc/init.d/uftp stop
 		#echo "$USERPASS" | ssh suporte@$line sudo -S uftpd -D $dirUFTP -B $uftpBytes
 
-		if echo "$USERPASS" | ssh suporte@$line sudo -S ls $dirUFTP ; then
-			echo "$USERPASS" | ssh suporte@$line sudo -S /usr/bin/uftpd -d -L /var/log/uftp.log -D $dirUFTP -t &
+		if echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line sudo -S ls $dirUFTP ; then
+			echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line sudo -S /usr/bin/uftpd -d -L /var/log/uftp.log -D $dirUFTP -t &
 		else
 			echo -e "Directory $dirUFTP don't exist... creating..."
-			if echo "$USERPASS" | ssh suporte@$line sudo -S mkdir -p $dirUFTP ; then
-				echo "$USERPASS" | ssh suporte@$line sudo -S chown -R suporte $dirUFTP
-				echo "$USERPASS" | ssh suporte@$line sudo -S /usr/bin/uftpd -d -L /var/log/uftp.log -D $dirUFTP -t &
+			if echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line sudo -S mkdir -p $dirUFTP ; then
+				echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line sudo -S chown -R suporte $dirUFTP
+				echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line sudo -S /usr/bin/uftpd -d -L /var/log/uftp.log -D $dirUFTP -t &
 			else
 				echo "Fail to init uftpd in $line..."
 			fi
@@ -280,7 +266,6 @@ function startUtftpd(){
 	checkUtftpd
 }
 
-# Stop UTFPD on all cluster hosts - its danger that the UTFPD process stay running in the clusters hosts - someone can send files and for example execute a DDoS attack.
 function stopUtftpd(){
 	echo -e "Stop UFTPD, It's used to copy files in a multicast mode..."
 	read -p "Do you want stop the uftp on the hosts form the cluster?(y/N)" yn
@@ -289,7 +274,7 @@ function stopUtftpd(){
 			while IFS= read -r line
 			do
 				echo "Stop UFTPD in the $line host..."
-				echo "$USERPASS" | ssh suporte@$line sudo -S /etc/init.d/uftp stop
+				echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line sudo -S /etc/init.d/uftp stop
 			done < "$fileHosts"
 			menuFile;;
 		* ) echo "Okay, go to file menu!"; menuFile;;
@@ -301,7 +286,6 @@ function stopUtftpd(){
 
 }
 
-# Shutdown all cluter hosts
 function shutdownAllHosts(){
 	echo -e "Shutdown all hosts from the $lab lab... (except this host)"
 
@@ -311,14 +295,13 @@ function shutdownAllHosts(){
 		[yY] ) while IFS= read -r line
 				do
 					echo "$line"
-					echo "$USERPASS" | ssh suporte@$line sudo -S poweroff
+					echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line sudo -S poweroff
 				done < "$fileHosts"
 				echo -e "Done... waint a time and check if hosts is down!"; menu;;
 		* ) echo "Okay, cancel shutdown all hosts!"; menu;;
 	esac
 }
 
-# Copy a file using a multicast copy
 function copyFileMcast(){
 	echo -e "Copy a file using multicast to the cluster of $lab lab."
 	echo -e "Please enter with the file that will be copy to all hosts from the $lab cluster:"
@@ -345,18 +328,16 @@ function copyFileMcast(){
 
 }
 
-# Check a file in a specific host
 # $1 - fileName $2 - host
 function verifyFileHost(){
 echo -e "\nFinding file $1 in the $(ColorBlue $2) host:"
-		if echo "$USERPASS" | ssh suporte@$2 sudo -S ls $1 ; then
+		if echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$2 sudo -S ls $1 ; then
 			echo -e "File $(ColorGreen found)..."
 		else
 			echo -e "File $(ColorRed missed)..."
 		fi
 }
 
-# Check a file in all hosts from the cluster
 # $1 - fileName
 function verifyFileCluster(){
 	echo "Verifing $1 File "
@@ -367,7 +348,6 @@ function verifyFileCluster(){
 
 }
 
-# Check a file in all hosts from the cluster
 function verifyFileCluster_read(){
 	echo -e "Verify if exist a file in all hosts from cluster of the $lab lab."
 	echo -e "Enter with the file name:"
@@ -375,7 +355,6 @@ function verifyFileCluster_read(){
 	verifyFileCluster $fileName
 }
 
-# Execute a command with sudo in all hosts from the cluster
 function executeSudoCommandCluster(){
 	ok=0
 	fail=0
@@ -385,7 +364,7 @@ function executeSudoCommandCluster(){
 	while IFS= read -r line
 	do
 		echo -e "\nExecuting command $command in the $(ColorBlue $line) host:"
-		if echo "$USERPASS" | sshpass ssh suporte@$line sudo -S $command ; then
+		if echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line sudo -S $command ; then
 			let "ok+=1"
 			echo -e "Command executed with $(ColorGreen success) - total hosts: $ok."
 		else
@@ -397,7 +376,8 @@ function executeSudoCommandCluster(){
 
 }
 
-# Execute a command with sudo in a specific host from the cluster
+# terminar de fazer a execução de comandos em um host especifico - perguntar se quer executar o mesmo comando em outro host...
+# tbm daria para ver os computadores que não tem ssh ou uftp e pedir se quer instalar neles... 
 function executeSudoCommandClusterInAHost(){
 	echo -e "Execute a command with $(ColorRed sudo) in a specific host from the cluster of the $lab lab."
 	echo -e "Enter the host IP: e.g 192.168.0.1"
@@ -406,14 +386,13 @@ function executeSudoCommandClusterInAHost(){
 	read command
 	
 		echo -e "\nExecuting command $command in the $(ColorBlue $line) host:"
-		if echo "$USERPASS" | sshpass ssh suporte@$host sudo -S $command ; then
+		if echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$host sudo -S $command ; then
 			echo -e "Command executed with $(ColorGreen success)."
 		else
 			echo -e "Command $(ColorRed fail)."
 		fi
 }
 
-# Execute a command (without sudo) in all hosts from the cluster
 function executeCommandCluster(){
 	ok=0
 	fail=0
@@ -423,7 +402,7 @@ function executeCommandCluster(){
 	while IFS= read -r line
 	do
 		echo -e "\nExecuting command $command in the $(ColorBlue $line) host:"
-		if echo "$USERPASS" | sshpass ssh suporte@$line $command ; then
+		if echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line $command ; then
 			let "ok+=1"
 			echo -e "Command executed with $(ColorGreen success) - total hosts: $ok."
 		else
@@ -435,8 +414,6 @@ function executeCommandCluster(){
 
 }
 
-
-# Make a download file from a Google Drive
 function downGDrive(){
 	echo -e "Download a file from a Google Drive - it can be helpful"
 
@@ -462,37 +439,29 @@ function downGDrive(){
 
 }
 
-# Set the lab/cluster that will be used
 function selectLab(){
-  echo -ne "
-  Select the lab - $(ColorBlue 'choose an option'): \n"
-  select op in $(cat $fileLabs) Exit
-  do
-    case $op in
-        Exit)
-            echo "Exit"
-            exit 0
-            ;;
-        *)
-            if [ -z "$op" ]
-            then
-                echo -e $red# Execute a command with sudo in a specific host from the cluster"Wrong option, please select a valid option!"$clear
-            else
-                echo -e "Was selected option $REPLY - laboratory $green $op" $clean
-                setLab $op; menu
-            fi
-            ;;
-	esac
-   done
+ echo -ne "
+  Select the lab:
+  $(ColorGreen '1)') e007
+  $(ColorGreen '2)') e105
+  $(ColorGreen '3)') teste
+  $(ColorGreen '0)') Exit
+  $(ColorBlue 'Choose an option:') "
+  read a
+  case $a in
+	        1) setLab $labE007 ; menu ;;
+	        2) setLab $labE105 ; menu ;;
+	        3) setLab $labTeste; menu ;;
+		0) exit 0 ;;
+		*) echo -e $red"Wrong option, please select a valid option!"$clear;;
+  esac
 }
 
-# Set sudo password
 function setPassword(){
 	echo -e "Please enter with the $(ColorRed $adminUser) password"
 	read -s USERPASS
 }
 
-# Set user name from all hosts in the cluster
 function setUserAdmin(){
 	echo -e "The current user, that will be used to access all hosts from the cluster is: \n\t$(ColorRed $adminUser)\n. This user must have $(ColorGreen sudo) permissions!"
 	read -p "Do you really want continue and change the user?(y/N)" yn
@@ -505,7 +474,6 @@ function setUserAdmin(){
 	esac
 }
 
-# Menu
 function menuConf(){
 echo -e "$(ColorGreen Configure) script!"
 echo -ne "
@@ -529,7 +497,6 @@ $(ColorBlue 'Choose an option:') "
         esac
 }
 
-# Menu
 function menu0(){
 	echo -e "Welcome to $(ColorGreen ClusterFTP) script, you need enter with the admin password for user $(ColorRed $adminUser)!"
 	setPassword
@@ -538,7 +505,6 @@ function menu0(){
 	selectLab
 }
 
-# Menu
 function menuFile(){
 	echo -e "$(ColorGreen File) menu..."
 	echo -ne "
@@ -633,7 +599,7 @@ if ! [ -x "$(command -v sshpass)" ]; then
 fi
 if ! [ -x "$(command -v wakeonlan)" ]; then
 	echo "Error: wakeonlan is not installed."
-	echo -e "Please install wakeonlan - apt install wakeonlan"
+	echo -e "Please install sshpass - apt install wakeonlan"
 	exit 0
 fi
 #
