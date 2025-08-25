@@ -106,8 +106,9 @@ function installSSHkeyHost(){
 	echo -e "Please enter the host IP: e.g. 192.168.0.1"
 	read host
 	echo "Copying ssh file do host $host"
-	echo "$USERPASS" | ssh-copy-id -f $adminUser@$host
-	echo "Copy done..."
+	# The -o options prevent interactive prompts for host key verification.
+	sshpass -p "$USERPASS" ssh-copy-id -f -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$adminUser@$host"
+	echo "Copy done."
 }
 
 function installSSHkey(){
@@ -116,7 +117,7 @@ function installSSHkey(){
 	read -p "Do you want continue?(y/N)" yn
 
 	case $yn in
-		[yY] ) echo -e "Installing  SSH in the hosts from de $lan lan... wait!"
+		[yY] ) echo -e "Installing SSH in the hosts from the $lab lab... wait! (This will only install keys on hosts where they are not already present.)"
 
 			if ! checkFiles $fileSSH; then
 				echo -e "You are logged with the ``whoami`` user!"
@@ -127,8 +128,7 @@ function installSSHkey(){
 			while IFS= read -r line
 			do
 				echo "Copying ssh file do host $line"
-				echo "$USERPASS" | ssh-copy-id -f $adminUser@$line
-				#echo "$USERPASS" | sshpass ssh-copy-id -x -s -f $adminUser@$line
+				sshpass -p "$USERPASS" ssh-copy-id -f -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$adminUser@$line"
 			done < "$fileHosts"
 		    echo "Done..."; menu;;
 		* ) echo "Okay, cancel intall SSH key!"; menu;;
@@ -604,4 +604,3 @@ if ! [ -x "$(command -v wakeonlan)" ]; then
 fi
 #
 menu0
-
