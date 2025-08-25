@@ -51,7 +51,7 @@ ColorRed(){
 
 function showHostStatus(){
 	if ping -c 1 -W 1 "$1" &> /dev/null ; then
-		sshState=`echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line whoami 2> /dev/null`
+		sshState=`echo "$USERPASS" | sshpass -p $USERPASS ssh $adminUser@$line whoami 2> /dev/null`
 		if  [[ $adminUser = $sshState ]]; then
 			echo -ne "$(ColorGreen $1) (up-ssh), \c"
 			let "iSSH+=1"
@@ -106,7 +106,7 @@ function installSSHkeyHost(){
 	echo -e "Please enter the host IP: e.g. 192.168.0.1"
 	read host
 	echo "Copying ssh file do host $host"
-	echo "$USERPASS" | ssh-copy-id -f suporte@$host
+	echo "$USERPASS" | ssh-copy-id -f $adminUser@$host
 	echo "Copy done..."
 }
 
@@ -127,8 +127,8 @@ function installSSHkey(){
 			while IFS= read -r line
 			do
 				echo "Copying ssh file do host $line"
-				echo "$USERPASS" | ssh-copy-id -f suporte@$line
-				#echo "$USERPASS" | sshpass ssh-copy-id -x -s -f suporte@$line
+				echo "$USERPASS" | ssh-copy-id -f $adminUser@$line
+				#echo "$USERPASS" | sshpass ssh-copy-id -x -s -f $adminUser@$line
 			done < "$fileHosts"
 		    echo "Done..."; menu;;
 		* ) echo "Okay, cancel intall SSH key!"; menu;;
@@ -214,7 +214,7 @@ function checkUtftpd(){
 	while IFS= read -r line
 	do
 		echo -e "\nCheck UFTPD from $line host:"
-		pross=`echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line sudo -S ps ax | grep uftpd | grep -v grep`
+		pross=`echo "$USERPASS" | sshpass -p $USERPASS ssh $adminUser@$line sudo -S ps ax | grep uftpd | grep -v grep`
 		#echo "out: $pross"
 		if [ -z "$pross" ]; then
 			echo -ne "$(ColorRed $line) (down-uftp)"
@@ -242,17 +242,17 @@ function startUtftpd(){
 	while IFS= read -r line
 	do
 		echo "Start UFTPD in the $line host..."
-		#echo "$USERPASS" | ssh suporte@$line sudo -S /etc/init.d/uftp restart
-		echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line sudo -S /etc/init.d/uftp stop
-		#echo "$USERPASS" | ssh suporte@$line sudo -S uftpd -D $dirUFTP -B $uftpBytes
+		#echo "$USERPASS" | ssh $adminUser@$line sudo -S /etc/init.d/uftp restart
+		echo "$USERPASS" | sshpass -p $USERPASS ssh $adminUser@$line sudo -S /etc/init.d/uftp stop
+		#echo "$USERPASS" | ssh $adminUser@$line sudo -S uftpd -D $dirUFTP -B $uftpBytes
 
-		if echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line sudo -S ls $dirUFTP ; then
-			echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line sudo -S /usr/bin/uftpd -d -L /var/log/uftp.log -D $dirUFTP -t &
+		if echo "$USERPASS" | sshpass -p $USERPASS ssh $adminUser@$line sudo -S ls $dirUFTP ; then
+			echo "$USERPASS" | sshpass -p $USERPASS ssh $adminUser@$line sudo -S /usr/bin/uftpd -d -L /var/log/uftp.log -D $dirUFTP -t &
 		else
 			echo -e "Directory $dirUFTP don't exist... creating..."
-			if echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line sudo -S mkdir -p $dirUFTP ; then
-				echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line sudo -S chown -R suporte $dirUFTP
-				echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line sudo -S /usr/bin/uftpd -d -L /var/log/uftp.log -D $dirUFTP -t &
+			if echo "$USERPASS" | sshpass -p $USERPASS ssh $adminUser@$line sudo -S mkdir -p $dirUFTP ; then
+				echo "$USERPASS" | sshpass -p $USERPASS ssh $adminUser@$line sudo -S chown -R $adminUser $dirUFTP
+				echo "$USERPASS" | sshpass -p $USERPASS ssh $adminUser@$line sudo -S /usr/bin/uftpd -d -L /var/log/uftp.log -D $dirUFTP -t &
 			else
 				echo "Fail to init uftpd in $line..."
 			fi
@@ -274,7 +274,7 @@ function stopUtftpd(){
 			while IFS= read -r line
 			do
 				echo "Stop UFTPD in the $line host..."
-				echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line sudo -S /etc/init.d/uftp stop
+				echo "$USERPASS" | sshpass -p $USERPASS ssh $adminUser@$line sudo -S /etc/init.d/uftp stop
 			done < "$fileHosts"
 			menuFile;;
 		* ) echo "Okay, go to file menu!"; menuFile;;
@@ -295,7 +295,7 @@ function shutdownAllHosts(){
 		[yY] ) while IFS= read -r line
 				do
 					echo "$line"
-					echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line sudo -S poweroff
+					echo "$USERPASS" | sshpass -p $USERPASS ssh $adminUser@$line sudo -S poweroff
 				done < "$fileHosts"
 				echo -e "Done... waint a time and check if hosts is down!"; menu;;
 		* ) echo "Okay, cancel shutdown all hosts!"; menu;;
@@ -331,7 +331,7 @@ function copyFileMcast(){
 # $1 - fileName $2 - host
 function verifyFileHost(){
 echo -e "\nFinding file $1 in the $(ColorBlue $2) host:"
-		if echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$2 sudo -S ls $1 ; then
+		if echo "$USERPASS" | sshpass -p $USERPASS ssh $adminUser@$2 sudo -S ls $1 ; then
 			echo -e "File $(ColorGreen found)..."
 		else
 			echo -e "File $(ColorRed missed)..."
@@ -364,7 +364,7 @@ function executeSudoCommandCluster(){
 	while IFS= read -r line
 	do
 		echo -e "\nExecuting command $command in the $(ColorBlue $line) host:"
-		if echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line sudo -S $command ; then
+		if echo "$USERPASS" | sshpass -p $USERPASS ssh $adminUser@$line sudo -S $command ; then
 			let "ok+=1"
 			echo -e "Command executed with $(ColorGreen success) - total hosts: $ok."
 		else
@@ -386,7 +386,7 @@ function executeSudoCommandClusterInAHost(){
 	read command
 	
 		echo -e "\nExecuting command $command in the $(ColorBlue $line) host:"
-		if echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$host sudo -S $command ; then
+		if echo "$USERPASS" | sshpass -p $USERPASS ssh $adminUser@$host sudo -S $command ; then
 			echo -e "Command executed with $(ColorGreen success)."
 		else
 			echo -e "Command $(ColorRed fail)."
@@ -402,7 +402,7 @@ function executeCommandCluster(){
 	while IFS= read -r line
 	do
 		echo -e "\nExecuting command $command in the $(ColorBlue $line) host:"
-		if echo "$USERPASS" | sshpass -p $USERPASS ssh suporte@$line $command ; then
+		if echo "$USERPASS" | sshpass -p $USERPASS ssh $adminUser@$line $command ; then
 			let "ok+=1"
 			echo -e "Command executed with $(ColorGreen success) - total hosts: $ok."
 		else
