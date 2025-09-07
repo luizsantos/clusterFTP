@@ -505,6 +505,49 @@ function menu0(){
 	selectLab
 }
 
+function copyFilesScp(){
+	echo -e "Copy file(s) using SCP to all hosts in the $(ColorGreen $lab) lab."
+
+	# 1. Get source files
+	read -p "Enter the absolute path of the source file(s) (space-separated): " source_files
+
+	# Check if any files were entered
+	if [ -z "$source_files" ]; then
+		echo -e "$(ColorRed 'No source files provided.')"
+		return
+	fi
+
+	# 2. Check if local files exist
+	for file in $source_files; do
+		if ! [ -f "$file" ]; then
+			echo -e "Error: Local file $(ColorRed "$file") does not exist. Aborting."
+			return
+		fi
+	done
+
+	# 3. Get destination directory
+	read -p "Enter the destination directory on remote hosts (e.g., /opt/images): " dest_dir
+	if [ -z "$dest_dir" ]; then
+		echo -e "$(ColorRed 'No destination directory provided.')"
+		return
+	fi
+
+	# 4. Loop through hosts and copy
+	while IFS= read -r line
+	do
+		echo -e "\n--> Processing host: $(ColorBlue $line)"
+		echo "Step 1: Copying files to user's home directory..."
+		if echo "$USERPASS" | sshpass -p "$USERPASS" scp -o StrictHostKeyChecking=no $source_files "$adminUser@$line":~ ; then
+			echo "Step 2: Moving files to final destination with sudo..."
+			basenames=$(basename -a $source_files)
+			ssh_command="sudo mkdir -p $dest_dir && sudo mv -v ~/{"$(echo $basenames | sed 's/ /,~/g')"} $dest_dir/"
+			echo "$USERPASS" | sshpass -p "$USERPASS" ssh -o StrictHostKeyChecking=no "$adminUser@$line" "$ssh_command"
+		else
+			echo -e "$(ColorRed "Failed to copy files to $line")"
+		fi
+	done < "$fileHosts"
+}
+
 function menuFile(){
 	echo -e "$(ColorGreen File) menu..."
 	echo -ne "
@@ -514,17 +557,19 @@ function menuFile(){
 	$(ColorGreen '3)') Download a file from Google Drive to this host only;
 	$(ColorGreen '4)') Start UFTPD;
 	$(ColorGreen '5)') Stop UFTPD;
-	$(ColorGreen '6)') Show and check uftp in cluster;
+	$(ColorGreen '6)') Show and check UFTP in cluster;
+	$(ColorGreen '7)') Copy file(s) via SCP to the cluster;
 	$(ColorGreen '0)') Exit
 	$(ColorBlue 'Choose an option:') "
 	read a
     case $a in
 	        1) copyFileMcast ; menuFile ;;
-			2) verifyFileCluster_read ; menuFile ;;
-			3) downGDrive ; menuFile ;;
-			4) startUtftpd ; menuFile ;;
-			5) stopUtftpd ; menuFile ;;
-			6) checkUtftpd ; menuFile ;;
+		2) verifyFileCluster_read ; menuFile ;;
+		3) downGDrive ; menuFile ;;
+		4) startUtftpd ; menuFile ;;
+		5) stopUtftpd ; menuFile ;;
+		6) checkUtftpd ; menuFile ;;
+		7) copyFilesScp ; menuFile ;;
 		0) menu ;;
 		*) echo -e $red"Wrong option, please select a valid option!"$clear;;
     esac
